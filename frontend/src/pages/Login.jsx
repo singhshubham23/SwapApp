@@ -1,107 +1,117 @@
 import { useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import API from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false); // Added loading state
+  const [loading, setLoading] = useState(false);
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!email || !password) {
+      toast.warning("Please enter both email and password.");
+      return;
+    }
     setLoading(true);
     try {
-      if (!email || !password) {
-        alert("Please enter both email and password.");
-        setLoading(false);
-        return;
-      }
-
       const res = await API.post("/auth/login", { email, password });
       login(res.data);
+      toast.success("Welcome back! Redirecting to dashboard...");
       navigate("/dashboard");
     } catch (error) {
       console.error("Login error:", error);
       const errorMessage =
         error.response?.data?.message ||
         "Invalid credentials. Please check your email and password.";
-      alert(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setLoading(false); // Reset loading state on finish
+      setLoading(false);
     }
   };
 
   return (
-    <div className="container mt-5">
-      <div className="row justify-content-center">
-        {/* Responsive card container, centered */}
-        <div className="col-12 col-sm-8 col-md-6 col-lg-4">
-          <div className="card shadow-lg p-4">
-            <h2 className="text-center mb-4 fw-bold text-primary">
-              Member Login 🔑
-            </h2>
-            <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label htmlFor="emailInput" className="form-label">
-                  Email address
-                </label>
-                <input
-                  id="emailInput"
-                  type="email"
-                  className="form-control form-control-lg"
-                  placeholder="user@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="mb-4">
-                <label htmlFor="passwordInput" className="form-label">
-                  Password
-                </label>
-                <input
-                  id="passwordInput"
-                  type="password"
-                  className="form-control form-control-lg"
-                  placeholder="Enter password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              <button
-                className="btn btn-primary btn-lg w-100 mb-3"
-                type="submit"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span
-                      className="spinner-border spinner-border-sm me-2"
-                      role="status"
-                      aria-hidden="true"
-                    ></span>
-                    Logging In...
-                  </>
-                ) : (
-                  "Login"
-                )}
-              </button>
-
-              <p className="mt-3 text-center">
-                Don't have an account?{" "}
-                <Link to="/register" className="fw-bold text-decoration-none">
-                  Register Here
-                </Link>
-              </p>
-            </form>
+    <div className="auth-page">
+      <div className="glass-card auth-card animate-scaleIn">
+        <div style={{ textAlign: "center", marginBottom: "var(--space-sm)" }}>
+          <div
+            style={{
+              width: "56px",
+              height: "56px",
+              margin: "0 auto var(--space-md)",
+              borderRadius: "var(--radius-md)",
+              background: "linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.5rem",
+            }}
+          >
+            🔑
           </div>
         </div>
+        <h2 className="auth-title">Welcome Back</h2>
+        <p className="auth-subtitle">Sign in to manage your time slots</p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="input-group">
+            <label htmlFor="login-email" className="input-label">
+              Email Address
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              className="input-field"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </div>
+
+          <div className="input-group">
+            <label htmlFor="login-password" className="input-label">
+              Password
+            </label>
+            <input
+              id="login-password"
+              type="password"
+              className="input-field"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+          </div>
+
+          <button
+            className="btn btn-primary btn-lg"
+            type="submit"
+            disabled={loading}
+            style={{ width: "100%", marginTop: "var(--space-sm)" }}
+          >
+            {loading ? (
+              <>
+                <span className="spinner" />
+                Signing In...
+              </>
+            ) : (
+              "Sign In"
+            )}
+          </button>
+
+          <p className="auth-footer">
+            Don't have an account?{" "}
+            <Link to="/register">Create one</Link>
+          </p>
+        </form>
       </div>
     </div>
   );

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
-import API from "../api/axios";
+import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext.jsx";
+import API from "../api/axios";
 
 export default function Requests() {
   const { user } = useAuth();
   const [incoming, setIncoming] = useState([]);
   const [outgoing, setOutgoing] = useState([]);
   const [loading, setLoading] = useState(true);
+  const toast = useToast();
 
   const fetchRequests = async () => {
     try {
@@ -16,6 +18,7 @@ export default function Requests() {
       setOutgoing(res.data.outgoing || []);
     } catch (err) {
       console.error("Error fetching requests:", err);
+      toast.error("Failed to load swap requests.");
     } finally {
       setLoading(false);
     }
@@ -27,152 +30,208 @@ export default function Requests() {
 
   const respond = async (id, accept) => {
     try {
-      const res = await API.post(`/swap-response/${id}`, { accept });
-      console.log("Response success:", res.data);
+      await API.post(`/swap-response/${id}`, { accept });
       fetchRequests();
+      toast.success(accept ? "Swap accepted!" : "Swap rejected.");
     } catch (err) {
       console.error("Error responding to request:", err.response?.data || err);
-      alert(
-        "Failed to update request status: " +
-          (err.response?.data?.message || "Server Error")
+      toast.error(
+        err.response?.data?.message || "Failed to update request status."
       );
     }
   };
 
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "PENDING": return "badge badge-pending";
+      case "ACCEPTED": return "badge badge-accepted";
+      case "REJECTED": return "badge badge-rejected";
+      default: return "badge badge-busy";
+    }
+  };
+
   return (
-    <div className="p-3">
-      <h2 className="mb-4 fw-bold">🤝 Swap Requests Hub</h2>
+    <div className="page-container page-wrapper">
+      {/* Header */}
+      <div className="page-header animate-slideUp">
+        <h1 className="page-title">🤝 Swap Requests</h1>
+        <p className="page-subtitle">Manage incoming and outgoing swap requests</p>
+      </div>
 
       {loading && (
-        <div className="text-center p-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-2">Fetching your swap requests...</p>
+        <div className="loading-overlay">
+          <div className="spinner" />
+          <p>Fetching your swap requests...</p>
         </div>
       )}
 
       {!loading && (
-        <div className="row g-4">
-          <div className="col-12 col-lg-6">
-            <div className="card shadow-sm h-100">
-              <div className="card-header bg-primary text-white">
-                <h4 className="card-title mb-0">📥 Incoming Requests</h4>
-              </div>
-              <ul className="list-group list-group-flush fs-6">
-                {incoming.length === 0 ? (
-                  <li className="list-group-item text-center py-4 text-muted">
-                    No pending requests waiting for your action.
-                  </li>
-                ) : (
-                  incoming.map((req) => (
-                    <li
-                      key={req._id}
-                      className="list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-sm-center py-3"
-                    >
-                      <div className="me-sm-3 mb-2 mb-sm-0 flex-grow-1">
-                        <p className="mb-0">
-                          <span className="fw-bold">
-                            {req.requester?.name || "Unknown User"}
-                          </span>{" "}
-                          wants to swap:
-                        </p>
-                        <p className="mb-0">
-                          <span className="text-success fw-bold me-2">
-                            THEIRS:
-                          </span>
-                          <span className="text-muted">
-                            {req.mySlot?.title || "DELETED SLOT"}
-                          </span>
-                        </p>
-                        <p className="mb-0">
-                          <span className="text-danger fw-bold me-2">
-                            FOR YOURS:
-                          </span>
-                          <span className="text-muted">
-                            {req.theirSlot?.title || "DELETED SLOT"}
-                          </span>
-                        </p>
-                      </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
+            gap: "var(--space-xl)",
+          }}
+        >
+          {/* Incoming */}
+          <div className="animate-slideInLeft">
+            <h3 className="section-title">📥 Incoming Requests</h3>
 
-                      <div className="text-nowrap mt-2 mt-sm-0">
-                        {req.status === "PENDING" ? (
-                          <>
-                            <button
-                              className="btn btn-success btn-sm me-2"
-                              onClick={() => respond(req._id, true)}
-                            >
-                              Accept
-                            </button>
-                            <button
-                              className="btn btn-danger btn-sm"
-                              onClick={() => respond(req._id, false)}
-                            >
-                              Reject
-                            </button>
-                          </>
-                        ) : (
-                          <span
-                            className={`badge fs-6 bg-${
-                              req.status === "ACCEPTED" ? "success" : "danger"
-                            }`}
-                          >
-                            {req.status}
-                          </span>
-                        )}
+            {incoming.length === 0 ? (
+              <div className="glass-card-static empty-state">
+                <div className="empty-state-icon">📭</div>
+                <div className="empty-state-title">No incoming requests</div>
+                <p className="empty-state-text">
+                  No one has requested to swap with you yet.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+                {incoming.map((req) => (
+                  <div
+                    key={req._id}
+                    className="glass-card"
+                    style={{ padding: "var(--space-lg)" }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        marginBottom: "var(--space-md)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
+                        <div className="avatar" style={{ width: "32px", height: "32px", fontSize: "var(--font-size-xs)" }}>
+                          {req.requester?.name?.charAt(0)?.toUpperCase() || "?"}
+                        </div>
+                        <span style={{ fontWeight: 600 }}>
+                          {req.requester?.name || "Unknown User"}
+                        </span>
                       </div>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
+                      <span className={getStatusBadge(req.status)}>{req.status}</span>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr auto 1fr",
+                        gap: "var(--space-sm)",
+                        alignItems: "center",
+                        marginBottom: "var(--space-md)",
+                        fontSize: "var(--font-size-sm)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          padding: "var(--space-sm) var(--space-md)",
+                          background: "rgba(0, 184, 148, 0.08)",
+                          borderRadius: "var(--radius-sm)",
+                          border: "1px solid rgba(0, 184, 148, 0.15)",
+                        }}
+                      >
+                        <span style={{ color: "var(--color-success-light)", fontSize: "var(--font-size-xs)", fontWeight: 600 }}>
+                          THEIRS
+                        </span>
+                        <br />
+                        <span style={{ color: "var(--color-text-secondary)" }}>
+                          {req.mySlot?.title || "DELETED SLOT"}
+                        </span>
+                      </div>
+                      <span style={{ color: "var(--color-text-muted)", fontSize: "var(--font-size-lg)" }}>⇄</span>
+                      <div
+                        style={{
+                          padding: "var(--space-sm) var(--space-md)",
+                          background: "rgba(214, 48, 49, 0.08)",
+                          borderRadius: "var(--radius-sm)",
+                          border: "1px solid rgba(214, 48, 49, 0.15)",
+                        }}
+                      >
+                        <span style={{ color: "var(--color-danger-light)", fontSize: "var(--font-size-xs)", fontWeight: 600 }}>
+                          YOURS
+                        </span>
+                        <br />
+                        <span style={{ color: "var(--color-text-secondary)" }}>
+                          {req.theirSlot?.title || "DELETED SLOT"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {req.status === "PENDING" && (
+                      <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() => respond(req._id, true)}
+                          style={{ flex: 1 }}
+                        >
+                          ✓ Accept
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => respond(req._id, false)}
+                          style={{ flex: 1 }}
+                        >
+                          ✕ Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="col-12 col-lg-6">
-            <div className="card shadow-sm h-100">
-              <div className="card-header bg-secondary text-white">
-                <h4 className="card-title mb-0">📤 Outgoing Requests</h4>
+          {/* Outgoing */}
+          <div className="animate-slideInRight">
+            <h3 className="section-title">📤 Outgoing Requests</h3>
+
+            {outgoing.length === 0 ? (
+              <div className="glass-card-static empty-state">
+                <div className="empty-state-icon">📬</div>
+                <div className="empty-state-title">No outgoing requests</div>
+                <p className="empty-state-text">
+                  Visit the Marketplace to request a swap.
+                </p>
               </div>
-              <ul className="list-group list-group-flush fs-6">
-                {outgoing.length === 0 ? (
-                  <li className="list-group-item text-center py-4 text-muted">
-                    You have not sent any swap requests yet.
-                  </li>
-                ) : (
-                  outgoing.map((req) => (
-                    <li
-                      key={req._id}
-                      className="list-group-item d-flex justify-content-between align-items-center py-3"
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+                {outgoing.map((req) => (
+                  <div
+                    key={req._id}
+                    className="glass-card"
+                    style={{ padding: "var(--space-lg)" }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "var(--space-md)",
+                      }}
                     >
-                      <div className="flex-grow-1 me-3">
-                        <p className="mb-0">
-                          You requested to swap
-                          <span className="fw-bold mx-1">
-                            {req.mySlot?.title || "DELETED SLOT"}
-                          </span>{" "}
-                          (yours) for{" "}
-                          <span className="fw-bold mx-1">
-                            {req.theirSlot?.title || "DELETED SLOT"}
-                          </span>{" "}
-                          (theirs).
-                        </p>
-                      </div>
-                      <span
-                        className={`badge fs-6 bg-${
-                          req.status === "ACCEPTED"
-                            ? "success"
-                            : req.status === "REJECTED"
-                            ? "danger"
-                            : "secondary"
-                        }`}
-                      >
-                        {req.status}
+                      <span style={{ fontWeight: 600, fontSize: "var(--font-size-sm)" }}>
+                        Swap Request
                       </span>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
+                      <span className={getStatusBadge(req.status)}>{req.status}</span>
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: "var(--font-size-sm)",
+                        color: "var(--color-text-secondary)",
+                        lineHeight: 1.7,
+                      }}
+                    >
+                      <span style={{ color: "var(--color-text)" }}>Your slot:</span>{" "}
+                      <strong>{req.mySlot?.title || "DELETED SLOT"}</strong>
+                      <br />
+                      <span style={{ color: "var(--color-text)" }}>For:</span>{" "}
+                      <strong>{req.theirSlot?.title || "DELETED SLOT"}</strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

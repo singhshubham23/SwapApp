@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useToast } from "../context/ToastContext";
 import API from "../api/axios";
 import { useNavigate, Link } from "react-router-dom";
 
@@ -6,126 +7,130 @@ export default function Register() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setForm((prevForm) => ({
-      ...prevForm,
-      [name]: value,
-    }));
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.name || !form.email || !form.password) {
+      toast.warning("Please fill in all fields.");
+      return;
+    }
     setLoading(true);
     try {
-      if (!form.name || !form.email || !form.password) {
-        alert("Please fill in all fields.");
-        setLoading(false);
-        return;
-      }
-
       await API.post("/auth/register", form);
-      alert("Registration successful! You can now log in.");
-      navigate("/");
+      toast.success("Account created! You can now sign in.");
+      navigate("/login");
     } catch (error) {
       console.error("Registration error:", error);
       const errorMessage =
         error.response?.data?.message ||
         "Registration failed. Please check your details.";
-      alert(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container mt-5">
-      <div className="row justify-content-center">
-        <div className="col-12 col-sm-8 col-md-6 col-lg-4">
-          <div className="card shadow-lg p-4">
-            <h2 className="text-center mb-4 fw-bold text-success">
-              Create Account 📝
-            </h2>
-            <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label htmlFor="nameInput" className="form-label">
-                  Your Name
-                </label>
-                <input
-                  id="nameInput"
-                  name="name"
-                  className="form-control form-control-lg"
-                  placeholder="Full Name"
-                  value={form.name}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="emailInput" className="form-label">
-                  Email address
-                </label>
-                <input
-                  id="emailInput"
-                  name="email"
-                  className="form-control form-control-lg"
-                  placeholder="user@example.com"
-                  value={form.email}
-                  onChange={handleInputChange}
-                  type="email"
-                  required
-                />
-              </div>
-
-              <div className="mb-4">
-                <label htmlFor="passwordInput" className="form-label">
-                  Password
-                </label>
-                <input
-                  id="passwordInput"
-                  name="password"
-                  className="form-control form-control-lg"
-                  placeholder="Choose a strong password"
-                  type="password"
-                  value={form.password}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-
-              <button
-                className="btn btn-success btn-lg w-100 mb-3"
-                type="submit"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span
-                      className="spinner-border spinner-border-sm me-2"
-                      role="status"
-                      aria-hidden="true"
-                    ></span>
-                    Registering...
-                  </>
-                ) : (
-                  "Register"
-                )}
-              </button>
-
-              <p className="mt-3 text-center">
-                Already have an account?{" "}
-                <Link
-                  to="/"
-                  className="fw-bold text-decoration-none text-primary"
-                >
-                  Login Here
-                </Link>
-              </p>
-            </form>
+    <div className="auth-page">
+      <div className="glass-card auth-card animate-scaleIn">
+        <div style={{ textAlign: "center", marginBottom: "var(--space-sm)" }}>
+          <div
+            style={{
+              width: "56px",
+              height: "56px",
+              margin: "0 auto var(--space-md)",
+              borderRadius: "var(--radius-md)",
+              background: "linear-gradient(135deg, var(--color-success), var(--color-secondary))",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.5rem",
+            }}
+          >
+            ✨
           </div>
         </div>
+        <h2 className="auth-title">Create Account</h2>
+        <p className="auth-subtitle">Start swapping slots in seconds</p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="input-group">
+            <label htmlFor="reg-name" className="input-label">
+              Full Name
+            </label>
+            <input
+              id="reg-name"
+              name="name"
+              className="input-field"
+              placeholder="John Doe"
+              value={form.name}
+              onChange={handleInputChange}
+              required
+              autoComplete="name"
+            />
+          </div>
+
+          <div className="input-group">
+            <label htmlFor="reg-email" className="input-label">
+              Email Address
+            </label>
+            <input
+              id="reg-email"
+              name="email"
+              type="email"
+              className="input-field"
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={handleInputChange}
+              required
+              autoComplete="email"
+            />
+          </div>
+
+          <div className="input-group">
+            <label htmlFor="reg-password" className="input-label">
+              Password
+            </label>
+            <input
+              id="reg-password"
+              name="password"
+              type="password"
+              className="input-field"
+              placeholder="Choose a strong password"
+              value={form.password}
+              onChange={handleInputChange}
+              required
+              autoComplete="new-password"
+            />
+          </div>
+
+          <button
+            className="btn btn-primary btn-lg"
+            type="submit"
+            disabled={loading}
+            style={{ width: "100%", marginTop: "var(--space-sm)" }}
+          >
+            {loading ? (
+              <>
+                <span className="spinner" />
+                Creating Account...
+              </>
+            ) : (
+              "Create Account"
+            )}
+          </button>
+
+          <p className="auth-footer">
+            Already have an account?{" "}
+            <Link to="/login">Sign in</Link>
+          </p>
+        </form>
       </div>
     </div>
   );

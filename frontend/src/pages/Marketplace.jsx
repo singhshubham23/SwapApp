@@ -1,131 +1,190 @@
-import React, { useState, useEffect } from "react";
-import API from "../api/axios";
+import { useState, useEffect } from "react";
+import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext.jsx";
+import API from "../api/axios";
 
 const Marketplace = () => {
- const { token } = useAuth();
- const [swappableSlots, setSwappableSlots] = useState([]);
- const [myEvents, setMyEvents] = useState([]);
- const [selectedId, setSelectedId] = useState("");
+  const { user } = useAuth();
+  const [swappableSlots, setSwappableSlots] = useState([]);
+  const [myEvents, setMyEvents] = useState([]);
+  const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
+  const toast = useToast();
 
- useEffect(() => {
-  if (!token) return;
+  useEffect(() => {
+    if (!user) return;
 
-  const fetchData = async () => {
+    const fetchData = async () => {
       setLoading(true);
-   try {
-    const [slotsRes, myEventsRes] = await Promise.all([
-     API.get("/swappable-slots"),
-     API.get("/events"),
-    ]);
-
-    setSwappableSlots(slotsRes.data);
-    setMyEvents(myEventsRes.data);
-   } catch (err) {
-    console.error("Error fetching slots or events:", err);
-   } finally {
+      try {
+        const [slotsRes, myEventsRes] = await Promise.all([
+          API.get("/swappable-slots"),
+          API.get("/events"),
+        ]);
+        setSwappableSlots(slotsRes.data);
+        setMyEvents(myEventsRes.data);
+      } catch (err) {
+        console.error("Error fetching slots or events:", err);
+        toast.error("Failed to load marketplace data.");
+      } finally {
         setLoading(false);
       }
+    };
+
+    fetchData();
+  }, [user]);
+
+  const handleSwapRequest = async (theirSlotId) => {
+    if (!selectedId) {
+      toast.warning("Please select one of your swappable events first!");
+      return;
+    }
+
+    try {
+      await API.post("/swap-request", { mySlotId: selectedId, theirSlotId });
+      toast.success("Swap request sent! Check your Requests tab.");
+    } catch (err) {
+      console.error("Error sending swap request:", err);
+      toast.error(
+        err.response?.data?.message || "Failed to send swap request."
+      );
+    }
   };
-
-  fetchData();
- }, [token]);
-
- const handleSwapRequest = async (theirSlotId) => {
-  if (!selectedId) return alert("Please select one of your swappable events first!");
-
-  try {
-   await API.post(
-    "/swap-request",
-    { mySlotId: selectedId, theirSlotId }
-   );
-   alert("Swap request sent successfully! Check your Requests tab.");
-  } catch (err) {
-   console.error("Error sending swap request:", err);
-   alert("Error sending swap request: " + (err.response?.data?.message || "Server error."));
-  }
- };
 
   const availableMySlots = myEvents.filter((ev) => ev.status === "SWAPPABLE");
 
- return (
-  <div className="p-3">
-   <h2 className="mb-4 fw-bold">🛒 Swappable Slots Marketplace</h2>
+  return (
+    <div className="page-container page-wrapper">
+      {/* Header */}
+      <div className="page-header animate-slideUp">
+        <h1 className="page-title">🛒 Marketplace</h1>
+        <p className="page-subtitle">Browse available slots and request swaps</p>
+      </div>
 
-   <div className="card shadow-sm mb-5 p-4 bg-light">
-    <h5 className="card-title mb-3">Your Slot Selection</h5>
-    <label className="form-label fs-6 fw-semibold">
-     Step 1: Select the slot you wish to **give up** for the swap:
-    </label>
-    <select
-     className="form-select form-select-lg"
-     value={selectedId}
-     onChange={(e) => setSelectedId(e.target.value)}
-    >
-     <option value="">Select your swappable event</option>
-     {availableMySlots.map((ev) => (
-      <option key={ev._id} value={ev._id}>
-       {ev.title} ({new Date(ev.startTime).toLocaleString()})
-      </option>
-     ))}
-    </select>
+      {/* Slot Selection */}
+      <div
+        className="glass-card-static animate-slideUp"
+        style={{ padding: "var(--space-xl)", marginBottom: "var(--space-2xl)" }}
+      >
+        <h3 className="section-title">🔄 Your Slot Selection</h3>
+        <p
+          style={{
+            color: "var(--color-text-secondary)",
+            fontSize: "var(--font-size-sm)",
+            marginBottom: "var(--space-md)",
+          }}
+        >
+          Step 1: Select the slot you wish to <strong>give up</strong> for the swap:
+        </p>
+        <select
+          className="select-field"
+          value={selectedId}
+          onChange={(e) => setSelectedId(e.target.value)}
+          id="slot-select"
+        >
+          <option value="">Select your swappable event</option>
+          {availableMySlots.map((ev) => (
+            <option key={ev._id} value={ev._id}>
+              {ev.title} ({new Date(ev.startTime).toLocaleString()})
+            </option>
+          ))}
+        </select>
         {availableMySlots.length === 0 && (
-          <p className="text-danger mt-2">
+          <p
+            style={{
+              color: "var(--color-warning-dark)",
+              fontSize: "var(--font-size-sm)",
+              marginTop: "var(--space-sm)",
+            }}
+          >
             You must mark an event as "SWAPPABLE" on your Dashboard before requesting a swap.
           </p>
         )}
-   </div>
+      </div>
 
+      {/* Loading */}
       {loading && (
-        <div className="text-center p-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-2">Fetching available slots...</p>
+        <div className="loading-overlay">
+          <div className="spinner" />
+          <p>Fetching available slots...</p>
         </div>
       )}
 
+      {/* Slots Grid */}
       {!loading && (
         <>
-          <h3 className="mb-4">Available Slots from Other Users</h3>
-          <div className="row">
-            {swappableSlots.length === 0 ? (
-              <div className="col-12">
-                <p className="alert alert-info">No available slots from other users at the moment.</p>
-              </div>
-            ) : (
-              swappableSlots.map((slot) => (
-                <div key={slot._id} className="col-12 col-sm-6 col-md-4 col-lg-3 mb-4">
-                  <div className="card h-100 shadow border-primary">
-                    <div className="card-body d-flex flex-column">
-                      <h5 className="card-title fw-bold text-primary">{slot.title}</h5>
-                      <p className="card-text mb-2 text-muted">
-                        <small>Offered by: {slot.user?.name || 'Unknown User'}</small>
-                      </p>
-                      <p className="card-text flex-grow-1">
-                        **Start:** {new Date(slot.startTime).toLocaleString()}
-                        <br/>
-                        **End:** {new Date(slot.endTime).toLocaleString()}
-                      </p>
-                      <button
-                        className="btn btn-primary mt-3 w-100"
-                        onClick={() => handleSwapRequest(slot._id)}
-                        disabled={!selectedId} 
-                      >
-                        Request Swap
-                      </button>
-                      {!selectedId && <small className="text-danger text-center mt-1">Select your slot above!</small>}
+          <h3 className="section-title animate-slideUp">
+            📦 Available Slots from Other Users
+          </h3>
+
+          {swappableSlots.length === 0 ? (
+            <div className="glass-card-static empty-state animate-fadeIn">
+              <div className="empty-state-icon">🔍</div>
+              <div className="empty-state-title">No slots available</div>
+              <p className="empty-state-text">
+                No other users have swappable slots right now. Check back later!
+              </p>
+            </div>
+          ) : (
+            <div className="cards-grid stagger-children">
+              {swappableSlots.map((slot) => (
+                <div key={slot._id} className="glass-card event-card">
+                  <div className="event-card-header">
+                    <h4 className="event-card-title">{slot.title}</h4>
+                    <span className="badge badge-swappable">Swappable</span>
+                  </div>
+
+                  <p
+                    style={{
+                      fontSize: "var(--font-size-sm)",
+                      color: "var(--color-text-muted)",
+                    }}
+                  >
+                    Offered by: {slot.user?.name || "Unknown User"}
+                  </p>
+
+                  <div className="event-card-times">
+                    <div>
+                      <span className="event-card-time-label">Start</span>
+                      <br />
+                      {new Date(slot.startTime).toLocaleString()}
+                    </div>
+                    <div>
+                      <span className="event-card-time-label">End</span>
+                      <br />
+                      {new Date(slot.endTime).toLocaleString()}
                     </div>
                   </div>
+
+                  <div className="event-card-actions" style={{ flexDirection: "column" }}>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleSwapRequest(slot._id)}
+                      disabled={!selectedId}
+                      style={{ width: "100%" }}
+                    >
+                      Request Swap
+                    </button>
+                    {!selectedId && (
+                      <span
+                        style={{
+                          fontSize: "var(--font-size-xs)",
+                          color: "var(--color-warning-dark)",
+                          textAlign: "center",
+                        }}
+                      >
+                        Select your slot above first
+                      </span>
+                    )}
+                  </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </>
       )}
-  </div>
- );
+    </div>
+  );
 };
 
 export default Marketplace;
